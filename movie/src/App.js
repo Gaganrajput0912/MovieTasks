@@ -1,80 +1,103 @@
 import React, { useEffect, useState, useCallback } from "react";
-
+import AddMovie from "./FetchMovie/AddMovie";
 import MoviesList from "./components/MoviesList";
 import "./App.css";
 
-function App() {
+function AppApiFetch() {
   const [movies, setMovies] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState([]);
-  // const dummyMovies = [
-  //   {
-  //     id: 1,
-  //     title: "Some Dummy Movie",
-  //     openingText: "This is the opening text of the movie",
-  //     releaseDate: "2021-05-18",
-  //   },
-  //   {
-  //     id: 2,
-  //     title: "Some Dummy Movie 2",
-  //     openingText: "This is the second opening text of the movie",
-  //     releaseDate: "2021-05-19",
-  //   },
-  // ];
-  const fetchMoviesHandler = useCallback(async () => {
+  const [error, setError] = useState(null);
+  const ApiHandler = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-
     try {
-      const response = await fetch("https://swapi.dev/api/films/");
+      const response = await fetch(
+        "https://react-http-97734-default-rtdb.firebaseio.com/movies.json"
+      );
       if (!response.ok) {
-        throw new Error("Something went wrong!");
+        throw new Error("Something went wrong ....Retrying");
       }
       const data = await response.json();
+      const loadedMovies = [];
+      for (const key in data) {
+        loadedMovies.push({
+          id: key,
+          title: data[key].title,
+          openingText: data[key].openingText,
+          releaseDate: data[key].releaseDate,
+        });
+      }
 
-      const transformedMovies = data.results.map((movieData) => {
-        return {
-          id: movieData.episode_id,
-          title: movieData.title,
-          openingText: movieData.opening_crawl,
-          releaseDate: movieData.release_date,
-        };
-      });
-      setMovies(transformedMovies);
+      setMovies(loadedMovies);
     } catch (error) {
       setError(error.message);
     }
+
     setIsLoading(false);
   }, []);
-
   useEffect(() => {
-    fetchMoviesHandler();
-  }, [fetchMoviesHandler]);
+    ApiHandler();
+  }, [ApiHandler]);
+
   const retryingremovHandler = (event) => {
     setError(event.target.parentNode.remove());
   };
+  async function addMovieHandler(movie) {
+    const response = await fetch(
+      "https://react-http-97734-default-rtdb.firebaseio.com/movies.json",
+      {
+        method: "POST",
+        body: JSON.stringify(movie),
+        headers: { "Content-Type": "application/json" },
+      }
+    );
 
-  //fetch returns promise, default GET
-  //Asynchronous
+    const data = await response.json();
+    console.log(data);
+  }
+
+  async function deleteMovieHandler(id) {
+    try {
+      const response = await fetch(
+        `https://react-http-97734-default-rtdb.firebaseio.com/movies/${id}.json`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Something went wrong while deleting movie.");
+      }
+
+      const updatedMovies = movies.filter((movie) => movie.id !== id);
+      setMovies(updatedMovies);
+    } catch (error) {
+      setError(error.message);
+    }
+  }
   return (
     <React.Fragment>
       <section>
-        <button onClick={fetchMoviesHandler}>Fetch Movies</button>
+        <AddMovie onAddMovie={addMovieHandler} />
       </section>
       <section>
-        {!isLoading && movies.length === 0 && <MoviesList movies={movies} />}
+        <button onClick={ApiHandler}>Fetch Movies</button>
+      </section>
+      <section>
+        {!isLoading && (
+          <MoviesList movies={movies} onDelete={deleteMovieHandler} />
+        )}
 
         {!isLoading && error && <p>{error} </p>}
 
         {isLoading && <p>Loading...</p>}
-        {error && <p>Retrying...</p>}
       </section>
+
       <div>
-        {" "}
         {error && <button onClick={retryingremovHandler}>Cancel</button>}
       </div>
     </React.Fragment>
   );
 }
 
-export default App;
+export default AppApiFetch;
